@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 
+// Use basePath for GitHub Pages - only in production builds
 const isProd = process.env.NODE_ENV === 'production';
 const basePath = isProd ? '/MarkVista' : '';
 
@@ -11,6 +12,14 @@ const nextConfig: NextConfig = {
   output: 'export', // Static export for GitHub Pages
   images: {
     unoptimized: true, // Required for static export
+  },
+  // Ensure CSS is properly handled in static export
+  experimental: {
+    optimizePackageImports: ['lucide-react'],
+  },
+  // Force CSS to be inlined or properly referenced
+  compiler: {
+    removeConsole: false,
   },
   // Turbopack config (Next.js 16+)
   turbopack: {},

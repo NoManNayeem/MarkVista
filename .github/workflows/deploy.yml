@@ -40,6 +40,12 @@ jobs:
           
       - name: Create .nojekyll file
         run: touch out/.nojekyll
+        
+      - name: Verify CSS files
+        run: |
+          echo "Checking CSS files..."
+          ls -lh out/_next/static/chunks/*.css || true
+          find out/_next -name "*.css" -type f | head -5
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
