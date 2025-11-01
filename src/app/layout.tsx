@@ -8,7 +8,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "MarkVista - Professional Markdown Preview",
+  title: "MarkVista",
   description: "Transform markdown into professional documents with preview and export features",
   keywords: ["markdown", "preview", "pdf", "docx", "export", "documentation"],
 };
