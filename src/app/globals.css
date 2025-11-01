@@ -82,6 +82,12 @@ body {
 
 /* Print styles - CRITICAL for PDF export */
 @media print {
+  /* Remove page margins */
+  @page {
+    margin: 1cm;
+    size: A4;
+  }
+
   .no-print {
     display: none !important;
   }
@@ -90,10 +96,69 @@ body {
     background: white;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Remove container constraints and padding */
+  .container {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Make preview use full width */
+  main,
+  [class*="min-h-screen"],
+  [class*="mx-auto"] {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* Remove preview container padding */
+  [class*="px-4"],
+  [class*="px-3"],
+  [class*="py-8"],
+  [class*="container"] {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  /* Target the preview wrapper specifically */
+  #markdown-preview,
+  [id="markdown-preview"] {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    /* Override inline styles */
+    box-shadow: none !important;
+    min-height: auto !important;
+  }
+
+  /* Override any element with max-width style */
+  [style*="maxWidth"],
+  [style*="max-width"] {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  /* Override centered elements */
+  [style*="margin"][style*="auto"] {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
   }
 
   .markdown-body {
     box-shadow: none;
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
   }
 
   /* Page breaks */
