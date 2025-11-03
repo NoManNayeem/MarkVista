@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "export": "NODE_ENV=production next build",
-    "deploy": "npm run export && touch out/.nojekyll"
+    "deploy": "npm run export && touch out/.nojekyll",
+    "export:docs": "npm run export && rm -rf docs && mkdir -p docs && cp -R out/* docs/ && touch docs/.nojekyll",
+    "deploy:docs": "npm run export:docs && echo 'Docs prepared. Push and set Pages source to main/docs.'"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.3.1",

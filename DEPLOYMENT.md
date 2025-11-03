@@ -2,8 +2,6 @@
 
 ## Push to GitHub
 
-Since there was an authentication issue, you'll need to push manually:
-
 ```bash
 git push -u origin main
 ```
@@ -36,11 +34,25 @@ To ensure styles work correctly on GitHub Pages, the following fixes were implem
 
 ## Enable GitHub Pages
 
-After pushing:
+You have two reliable options. Pick ONE of the following:
 
-1. Go to repository Settings → Pages
-2. Under "Source", select "GitHub Actions"
-3. The workflow will automatically deploy on every push to main
+1) GitHub Actions (recommended)
+- Go to Settings → Pages → Build and deployment → Source: GitHub Actions
+- Push to `main` (or re-run the latest workflow under Actions → Deploy to GitHub Pages)
+- The workflow uses the `out/` folder and creates `.nojekyll` automatically
+
+2) Deploy from branch (`/docs` folder)
+- Build and stage static files into `docs/` with:
+  ```bash
+  npm run export:docs
+  git add docs && git commit -m "Deploy static export to docs" && git push
+  ```
+- Go to Settings → Pages → Build and deployment → Source: Deploy from a branch
+- Set Branch: `main`, Folder: `/docs`
+
+Notes:
+- `.nojekyll` is created for both methods to allow serving the `_next` assets
+- With Actions, no files are committed to the repo; with `/docs`, the built site is committed
 
 ## Verify Styles Are Loading
 
@@ -51,8 +63,8 @@ After deployment, check:
 4. Tailwind styles are applied
 
 If styles are still missing:
-1. Check browser console for 404 errors
-2. Verify basePath matches your repository name exactly
-3. Ensure `.nojekyll` file exists in the `out/` directory
-4. Clear browser cache and hard refresh (Ctrl+Shift+R or Cmd+Shift+R)
-
+1. Check browser console for 404s under `/MarkVista/_next/...`
+2. Verify Pages Source is set to “GitHub Actions” (or to `main /docs` if using the branch method)
+3. Confirm `.nojekyll` exists in the deployed root (Actions does this; `/docs` script adds it)
+4. Verify `basePath` equals your repository name exactly (see `next.config.ts`)
+5. Clear browser cache and hard refresh (Cmd/Ctrl+Shift+R)

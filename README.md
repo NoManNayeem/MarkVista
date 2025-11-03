@@ -140,10 +140,17 @@ This project is configured for static export and GitHub Pages deployment.
 
 ### Automated Deployment
 
-The project includes GitHub Actions workflow (`.github/workflows/nextjs.yml`) that automatically:
-- Builds the project on push to main
-- Exports static files
-- Deploys to GitHub Pages
+The project includes a GitHub Actions workflow (`.github/workflows/deploy.yml`) that automatically:
+- Builds the project on push to `main`
+- Exports static files to `out/`
+- Uploads the artifact and deploys to GitHub Pages
+
+Alternatively, you can deploy from a branch using the `docs/` folder:
+```bash
+npm run export:docs
+git add docs && git commit -m "Deploy static export to docs" && git push
+```
+Then set Pages Source to `main` / `docs` in repository Settings.
 
 ## 📖 Usage
 
