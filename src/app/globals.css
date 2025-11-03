@@ -5,6 +5,11 @@
   --foreground: #171717;
 }
 
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -16,6 +21,7 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Markdown body styles */
@@ -39,6 +45,10 @@ body {
   border-radius: 0.5rem;
   background-color: #ffffff;
   transition: opacity 0.2s, transform 0.2s;
+}
+
+.dark .mermaid-rendered svg {
+  background-color: #1f2937;
 }
 
 /* Clickable Mermaid diagrams */
@@ -71,6 +81,10 @@ body {
   background: #f1f1f1;
 }
 
+.dark ::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+
 ::-webkit-scrollbar-thumb {
   background: #888;
   border-radius: 4px;
@@ -78,6 +92,14 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #555;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #4b5563;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
 }
 
 /* Print styles - CRITICAL for PDF export */

@@ -2,12 +2,13 @@
 
 import { useRouter } from 'next/navigation';
 import { FileText, Github } from 'lucide-react';
+import { ThemeToggle } from './ThemeToggle';
 
 export default function Navbar() {
   const router = useRouter();
-  
+
   return (
-    <nav className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+    <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50 shadow-sm transition-colors">
       <div className="container mx-auto px-4 py-3 md:py-4">
         <div className="flex items-center justify-between">
           {/* Logo */}
@@ -25,11 +26,15 @@ export default function Navbar() {
 
           {/* Actions */}
           <div className="flex items-center gap-2 md:gap-3">
+            {/* Theme Toggle */}
+            <ThemeToggle />
+
+            {/* GitHub Link */}
             <a
               href="https://github.com/NoManNayeem/MarkVista"
               target="_blank"
               rel="noopener noreferrer"
-              className="p-2 md:px-4 md:py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2"
+              className="p-2 md:px-4 md:py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-2"
               aria-label="GitHub Repository"
             >
               <Github className="h-5 w-5" />

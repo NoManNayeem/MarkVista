@@ -40,13 +40,13 @@ export default function GitHubStarModal({ repoUrl = 'https://github.com/NoManNay
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 md:p-8 animate-in zoom-in-95 duration-300 relative">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 md:p-8 animate-in zoom-in-95 duration-300 relative border border-gray-200 dark:border-gray-700">
         <button
           onClick={handleClose}
-          className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
+          className="absolute top-4 right-4 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
           aria-label="Close"
         >
-          <X className="h-5 w-5 text-gray-500" />
+          <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
         </button>
 
         <div className="text-center">
@@ -54,10 +54,10 @@ export default function GitHubStarModal({ repoUrl = 'https://github.com/NoManNay
             <Star className="h-8 w-8 text-white fill-white" />
           </div>
 
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
             Enjoying MarkVista?
           </h2>
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
             If you find this tool useful, please consider giving it a star on GitHub. It helps others discover MarkVista!
           </p>
 
@@ -71,13 +71,13 @@ export default function GitHubStarModal({ repoUrl = 'https://github.com/NoManNay
             </button>
             <button
               onClick={handleClose}
-              className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+              className="px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium"
             >
               Maybe Later
             </button>
           </div>
 
-          <p className="text-xs text-gray-500 mt-4">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-4">
             This will only show once
           </p>
         </div>

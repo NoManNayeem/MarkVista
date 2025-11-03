@@ -61,26 +61,26 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-white dark:bg-gray-900 transition-colors">
       <Navbar />
 
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="bg-gradient-to-br from-blue-50 via-white to-purple-50 py-12 md:py-20 lg:py-24">
+        <section className="bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 py-12 md:py-20 lg:py-24 transition-colors">
           <div className="container mx-auto px-4">
             <div className="text-center mb-12 md:mb-16">
               <div className="inline-flex items-center justify-center w-20 h-20 md:w-24 md:h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl mb-6 shadow-lg">
                 <FileText className="h-10 w-10 md:h-12 md:w-12 text-white" />
               </div>
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 mb-4 md:mb-6">
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-gray-100 mb-4 md:mb-6">
                 <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                   MarkVista
                 </span>
               </h1>
-              <p className="text-lg md:text-xl lg:text-2xl text-gray-600 max-w-3xl mx-auto mb-6 md:mb-8 px-4">
+              <p className="text-lg md:text-xl lg:text-2xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto mb-6 md:mb-8 px-4">
                 Professional Markdown preview and export tool. Transform your markdown files into beautifully formatted PDF and DOCX documents.
               </p>
-              <div className="flex flex-wrap justify-center gap-4 text-sm md:text-base text-gray-600">
+              <div className="flex flex-wrap justify-center gap-4 text-sm md:text-base text-gray-600 dark:text-gray-400">
                 <span className="flex items-center gap-1">
                   <Zap className="h-4 w-4 text-yellow-500" /> Fast & Lightweight
                 </span>
@@ -98,7 +98,7 @@ export default function HomePage() {
               <div
                 onDragOver={onDragOver}
                 onDrop={onDrop}
-                className="border-4 border-dashed border-gray-300 rounded-2xl p-8 md:p-12 lg:p-16 text-center bg-white hover:border-blue-400 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-xl"
+                className="border-4 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl p-8 md:p-12 lg:p-16 text-center bg-white dark:bg-gray-800 hover:border-blue-400 dark:hover:border-blue-500 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-xl"
               >
                 <input
                   id="file-upload"
@@ -112,19 +112,19 @@ export default function HomePage() {
                   {isUploading ? (
                     <div className="animate-spin rounded-full h-16 w-16 md:h-20 md:w-20 border-b-4 border-blue-600 mx-auto mb-6" />
                   ) : (
-                    <Upload className="h-16 w-16 md:h-20 md:w-20 text-gray-400 mx-auto mb-6" />
+                    <Upload className="h-16 w-16 md:h-20 md:w-20 text-gray-400 dark:text-gray-500 mx-auto mb-6" />
                   )}
-                  <div className="text-xl md:text-2xl lg:text-3xl font-semibold text-gray-700 mb-2 md:mb-3">
+                  <div className="text-xl md:text-2xl lg:text-3xl font-semibold text-gray-700 dark:text-gray-300 mb-2 md:mb-3">
                     {isUploading ? 'Uploading...' : 'Drop your .md file here'}
                   </div>
-                  <div className="text-base md:text-lg text-gray-500">
-                    or <span className="text-blue-600 font-medium hover:underline">browse files</span>
+                  <div className="text-base md:text-lg text-gray-500 dark:text-gray-400">
+                    or <span className="text-blue-600 dark:text-blue-400 font-medium hover:underline">browse files</span>
                   </div>
                 </label>
               </div>
 
               {error && (
-                <div className="mt-6 p-4 bg-red-50 border-2 border-red-200 rounded-lg text-red-700 text-sm md:text-base">
+                <div className="mt-6 p-4 bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm md:text-base">
                   {error}
                 </div>
               )}
@@ -133,9 +133,9 @@ export default function HomePage() {
         </section>
 
         {/* Features Section */}
-        <section className="py-12 md:py-16 lg:py-20 bg-white">
+        <section className="py-12 md:py-16 lg:py-20 bg-white dark:bg-gray-800 transition-colors">
           <div className="container mx-auto px-4">
-            <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-900 mb-12 md:mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-900 dark:text-gray-100 mb-12 md:mb-16">
               Powerful Features
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 max-w-6xl mx-auto">
@@ -179,15 +179,15 @@ export default function HomePage() {
               ].map((feature, i) => (
                 <div
                   key={i}
-                  className="bg-white border border-gray-200 rounded-xl p-6 md:p-8 shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1"
+                  className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-6 md:p-8 shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1"
                 >
                   <div className={`inline-flex items-center justify-center w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br ${feature.color} rounded-lg mb-4 shadow-md`}>
                     <feature.icon className="h-6 w-6 md:h-7 md:w-7 text-white" />
                   </div>
-                  <h3 className="text-xl md:text-2xl font-semibold text-gray-900 mb-3">
+                  <h3 className="text-xl md:text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-3">
                     {feature.title}
                   </h3>
-                  <p className="text-gray-600 text-sm md:text-base leading-relaxed">
+                  <p className="text-gray-600 dark:text-gray-400 text-sm md:text-base leading-relaxed">
                     {feature.desc}
                   </p>
                 </div>
@@ -197,9 +197,9 @@ export default function HomePage() {
         </section>
 
         {/* How It Works */}
-        <section className="py-12 md:py-16 lg:py-20 bg-gray-50">
+        <section className="py-12 md:py-16 lg:py-20 bg-gray-50 dark:bg-gray-900 transition-colors">
           <div className="container mx-auto px-4">
-            <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-900 mb-12 md:mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-900 dark:text-gray-100 mb-12 md:mb-16">
               How It Works
             </h2>
             <div className="max-w-4xl mx-auto">
@@ -213,10 +213,10 @@ export default function HomePage() {
                     <div className="inline-flex items-center justify-center w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full text-white text-2xl md:text-3xl font-bold mb-4 shadow-lg">
                       {item.step}
                     </div>
-                    <h3 className="text-xl md:text-2xl font-semibold text-gray-900 mb-2">
+                    <h3 className="text-xl md:text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
                       {item.title}
                     </h3>
-                    <p className="text-gray-600 text-sm md:text-base">
+                    <p className="text-gray-600 dark:text-gray-400 text-sm md:text-base">
                       {item.desc}
                     </p>
                   </div>

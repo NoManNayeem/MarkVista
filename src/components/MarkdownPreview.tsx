@@ -7,13 +7,33 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import {
+  oneDark,
+  atomDark,
+  tomorrow,
+  vscDarkPlus,
+  dracula,
+  prism,
+} from 'react-syntax-highlighter/dist/esm/styles/prism';
 import mermaid from 'mermaid';
 import 'katex/dist/katex.min.css';
+import type { SyntaxTheme } from './SyntaxThemeSelector';
 
 interface MarkdownPreviewProps {
   content: string;
+  syntaxTheme?: SyntaxTheme;
 }
+
+// Map theme names to actual style objects
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const syntaxThemeStyles: Record<SyntaxTheme, any> = {
+  oneDark: oneDark,
+  github: prism,  // Using prism as a light theme (github not available)
+  vscDark: vscDarkPlus,
+  dracula: dracula,
+  atomDark: atomDark,
+  tomorrow: tomorrow,
+};
 
 // Initialize Mermaid with better defaults
 // Only initialize once (in browser environment)
@@ -23,13 +43,15 @@ if (typeof window !== 'undefined') {
   const originalWarn = console.warn;
   
   // Temporarily suppress console during Mermaid initialization
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   console.error = (...args: any[]) => {
     const msg = args.join(' ');
     if (!msg.includes('mermaid') && !msg.includes('Mermaid') && !msg.includes('Parse error')) {
       originalError.apply(console, args);
     }
   };
-  
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   console.warn = (...args: any[]) => {
     const msg = args.join(' ');
     if (!msg.includes('mermaid') && !msg.includes('Mermaid')) {
@@ -40,10 +62,23 @@ if (typeof window !== 'undefined') {
   try {
     mermaid.initialize({
       startOnLoad: false,
-      theme: 'default',
+      theme: 'default', // Use default theme (light background)
       securityLevel: 'loose',
       fontFamily: 'system-ui, -apple-system, sans-serif',
       flowchart: { useMaxWidth: true, htmlLabels: true },
+      themeVariables: {
+        primaryColor: '#fff', // White background for nodes
+        primaryTextColor: '#000',
+        primaryBorderColor: '#000',
+        lineColor: '#000',
+        secondaryColor: '#f3f4f6',
+        tertiaryColor: '#fff',
+        background: '#ffffff', // Ensure white background
+        mainBkg: '#ffffff',
+        secondBkg: '#f3f4f6',
+        tertiaryBkg: '#ffffff',
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       logLevel: 'fatal' as any, // Suppress all logging (fatal only)
     });
   } finally {
@@ -53,6 +88,7 @@ if (typeof window !== 'undefined') {
   }
   
   // Also suppress Mermaid's internal error queue if it exists
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mermaidAPI = (mermaid as any).mermaidAPI;
   if (mermaidAPI) {
     const originalLog = mermaidAPI.log;
@@ -68,8 +104,9 @@ if (typeof window !== 'undefined') {
   }
 }
 
-export default function MarkdownPreview({ content }: MarkdownPreviewProps) {
+export default function MarkdownPreview({ content, syntaxTheme = 'oneDark' }: MarkdownPreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const selectedThemeStyle = syntaxThemeStyles[syntaxTheme];
 
   useEffect(() => {
     const renderMermaid = async () => {
@@ -83,6 +120,7 @@ export default function MarkdownPreview({ content }: MarkdownPreviewProps) {
       const suppressedErrors: string[] = [];
       
       // Override console.error to catch Mermaid parse errors
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       console.error = (...args: any[]) => {
         const errorStr = args.join(' ');
         // Check if it's a Mermaid parsing/execution error
@@ -102,6 +140,7 @@ export default function MarkdownPreview({ content }: MarkdownPreviewProps) {
       };
       
       // Also suppress console.warn for Mermaid warnings
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       console.warn = (...args: any[]) => {
         const warnStr = args.join(' ');
         if (warnStr.includes('mermaid') || warnStr.includes('Mermaid')) {
@@ -133,6 +172,7 @@ export default function MarkdownPreview({ content }: MarkdownPreviewProps) {
             let mermaidErrorCaught = false;
             let caughtErrorMessage = '';
             
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             console.error = (...args: any[]) => {
               const msg = args.join(' ');
               if (
@@ -149,7 +189,8 @@ export default function MarkdownPreview({ content }: MarkdownPreviewProps) {
               }
               tempError.apply(console, args);
             };
-            
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             console.warn = (...args: any[]) => {
               const msg = args.join(' ');
               if (msg.includes('mermaid') || msg.includes('Mermaid')) {
@@ -288,15 +329,17 @@ export default function MarkdownPreview({ content }: MarkdownPreviewProps) {
                   }
                 });
               }
-            } catch (parseError: any) {
+            } catch (parseError) {
               // Restore console before handling error
               console.error = tempError;
               console.warn = tempWarn;
               throw parseError;
             }
-          } catch (parseError: any) {
+          } catch (parseError) {
             // Handle parsing errors more gracefully
-            const errorMsg = parseError?.message || parseError?.str || suppressedErrors[0] || 'Unknown diagram syntax error';
+            const errorMsg = parseError instanceof Error ? parseError.message :
+              (typeof parseError === 'object' && parseError !== null && 'str' in parseError ? String(parseError.str) :
+              suppressedErrors[0] || 'Unknown diagram syntax error');
             
             // Extract readable error message
             let displayMsg = errorMsg;
@@ -326,8 +369,8 @@ export default function MarkdownPreview({ content }: MarkdownPreviewProps) {
             // Clear suppressed errors for this element
             suppressedErrors.length = 0;
           }
-        } catch (error: any) {
-          const errorMsg = error?.message || suppressedErrors[0] || 'Failed to render diagram';
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : (suppressedErrors[0] || 'Failed to render diagram');
           
           element.innerHTML = `
             <div class="p-4 bg-red-50 border-2 border-red-200 rounded-lg">
@@ -354,21 +397,17 @@ export default function MarkdownPreview({ content }: MarkdownPreviewProps) {
   }, [content]);
 
   return (
-    <div 
+    <div
       ref={containerRef}
       id="markdown-preview"
-      className="markdown-body bg-white p-12 min-h-screen"
-      style={{
-        maxWidth: '210mm', // A4 width
-        margin: '0 auto',
-        boxShadow: '0 0 10px rgba(0,0,0,0.1)',
-      }}
+      className="markdown-body"
     >
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex, rehypeRaw]}
         components={{
           // CODE BLOCKS WITH MERMAID SUPPORT
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
           code({ node, inline, className, children, ...props }: any) {
             const match = /language-(\w+)/.exec(className || '');
             const lang = match ? match[1] : '';
@@ -388,7 +427,7 @@ export default function MarkdownPreview({ content }: MarkdownPreviewProps) {
               return (
                 <div className="my-6 rounded-lg overflow-hidden shadow-sm">
                   <SyntaxHighlighter
-                    style={oneDark}
+                    style={selectedThemeStyle}
                     language={lang}
                     PreTag="div"
                     showLineNumbers
@@ -406,8 +445,8 @@ export default function MarkdownPreview({ content }: MarkdownPreviewProps) {
 
             // Inline code
             return (
-              <code 
-                className="bg-gray-100 text-pink-600 px-2 py-0.5 rounded text-sm font-mono" 
+              <code
+                className="bg-gray-100 dark:bg-gray-700 text-pink-600 dark:text-pink-400 px-2 py-0.5 rounded text-sm font-mono"
                 {...props}
               >
                 {children}
@@ -418,8 +457,8 @@ export default function MarkdownPreview({ content }: MarkdownPreviewProps) {
           // HEADINGS with proper spacing
           h1({ children, ...props }) {
             return (
-              <h1 
-                className="text-4xl font-bold mt-8 mb-6 pb-3 border-b-2 border-gray-300 text-gray-900"
+              <h1
+                className="text-4xl font-bold mt-8 mb-6 pb-3 border-b-2 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
                 style={{ pageBreakAfter: 'avoid' }}
                 {...props}
               >
@@ -430,8 +469,8 @@ export default function MarkdownPreview({ content }: MarkdownPreviewProps) {
 
           h2({ children, ...props }) {
             return (
-              <h2 
-                className="text-3xl font-semibold mt-8 mb-4 text-gray-800"
+              <h2
+                className="text-3xl font-semibold mt-8 mb-4 text-gray-800 dark:text-gray-200"
                 style={{ pageBreakAfter: 'avoid' }}
                 {...props}
               >
@@ -442,8 +481,8 @@ export default function MarkdownPreview({ content }: MarkdownPreviewProps) {
 
           h3({ children, ...props }) {
             return (
-              <h3 
-                className="text-2xl font-semibold mt-6 mb-3 text-gray-800"
+              <h3
+                className="text-2xl font-semibold mt-6 mb-3 text-gray-800 dark:text-gray-200"
                 style={{ pageBreakAfter: 'avoid' }}
                 {...props}
               >
@@ -455,8 +494,8 @@ export default function MarkdownPreview({ content }: MarkdownPreviewProps) {
           // PARAGRAPHS with proper spacing
           p({ children, ...props }) {
             return (
-              <p 
-                className="text-base leading-7 mb-4 text-gray-700"
+              <p
+                className="text-base leading-7 mb-4 text-gray-700 dark:text-gray-300"
                 {...props}
               >
                 {children}
@@ -468,8 +507,8 @@ export default function MarkdownPreview({ content }: MarkdownPreviewProps) {
           table({ children, ...props }) {
             return (
               <div className="my-6 overflow-x-auto" style={{ pageBreakInside: 'avoid' }}>
-                <table 
-                  className="min-w-full border-collapse border-2 border-gray-300 shadow-sm"
+                <table
+                  className="min-w-full border-collapse border-2 border-gray-300 dark:border-gray-600 shadow-sm"
                   {...props}
                 >
                   {children}
@@ -480,7 +519,7 @@ export default function MarkdownPreview({ content }: MarkdownPreviewProps) {
 
           thead({ children, ...props }) {
             return (
-              <thead className="bg-gray-100" {...props}>
+              <thead className="bg-gray-100 dark:bg-gray-700" {...props}>
                 {children}
               </thead>
             );
@@ -488,8 +527,8 @@ export default function MarkdownPreview({ content }: MarkdownPreviewProps) {
 
           th({ children, ...props }) {
             return (
-              <th 
-                className="border border-gray-300 px-4 py-3 text-left font-semibold text-gray-900"
+              <th
+                className="border border-gray-300 dark:border-gray-600 px-4 py-3 text-left font-semibold text-gray-900 dark:text-gray-100"
                 {...props}
               >
                 {children}
@@ -499,8 +538,8 @@ export default function MarkdownPreview({ content }: MarkdownPreviewProps) {
 
           td({ children, ...props }) {
             return (
-              <td 
-                className="border border-gray-300 px-4 py-3 text-gray-700"
+              <td
+                className="border border-gray-300 dark:border-gray-600 px-4 py-3 text-gray-700 dark:text-gray-300"
                 {...props}
               >
                 {children}
@@ -511,8 +550,8 @@ export default function MarkdownPreview({ content }: MarkdownPreviewProps) {
           // BLOCKQUOTES
           blockquote({ children, ...props }) {
             return (
-              <blockquote 
-                className="border-l-4 border-blue-500 pl-6 py-3 my-6 italic bg-blue-50 text-gray-700 rounded-r"
+              <blockquote
+                className="border-l-4 border-blue-500 dark:border-blue-400 pl-6 py-3 my-6 italic bg-blue-50 dark:bg-blue-900/20 text-gray-700 dark:text-gray-300 rounded-r"
                 {...props}
               >
                 {children}
@@ -523,8 +562,8 @@ export default function MarkdownPreview({ content }: MarkdownPreviewProps) {
           // LISTS with proper spacing
           ul({ children, ...props }) {
             return (
-              <ul 
-                className="list-disc list-outside ml-6 mb-4 space-y-2 text-gray-700"
+              <ul
+                className="list-disc list-outside ml-6 mb-4 space-y-2 text-gray-700 dark:text-gray-300"
                 {...props}
               >
                 {children}
@@ -534,8 +573,8 @@ export default function MarkdownPreview({ content }: MarkdownPreviewProps) {
 
           ol({ children, ...props }) {
             return (
-              <ol 
-                className="list-decimal list-outside ml-6 mb-4 space-y-2 text-gray-700"
+              <ol
+                className="list-decimal list-outside ml-6 mb-4 space-y-2 text-gray-700 dark:text-gray-300"
                 {...props}
               >
                 {children}
@@ -546,9 +585,9 @@ export default function MarkdownPreview({ content }: MarkdownPreviewProps) {
           // LINKS
           a({ children, href, ...props }) {
             return (
-              <a 
+              <a
                 href={href}
-                className="text-blue-600 hover:text-blue-800 underline"
+                className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline"
                 target="_blank"
                 rel="noopener noreferrer"
                 {...props}
@@ -561,17 +600,18 @@ export default function MarkdownPreview({ content }: MarkdownPreviewProps) {
           // HORIZONTAL RULE
           hr({ ...props }) {
             return (
-              <hr 
-                className="my-8 border-t-2 border-gray-300"
+              <hr
+                className="my-8 border-t-2 border-gray-300 dark:border-gray-600"
                 {...props}
               />
             );
           },
 
-          // IMAGES
+          // IMAGES - Using standard img for markdown content (can't use Next Image with dynamic markdown)
           img({ src, alt, ...props }) {
             return (
-              <img 
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
                 src={src}
                 alt={alt}
                 className="max-w-full h-auto rounded-lg shadow-md my-6"
