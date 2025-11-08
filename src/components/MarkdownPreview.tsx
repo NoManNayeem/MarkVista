@@ -114,6 +114,22 @@ const downloadDiagramAsPNG = async (svgElement: SVGElement) => {
       svgClone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
     }
     
+    // Remove any external references that might cause CORS issues
+    // Remove xlink:href attributes that might reference external resources
+    const allElements = svgClone.querySelectorAll('*');
+    allElements.forEach((el) => {
+      // Remove xlink:href if it points to external resources
+      const xlinkHref = el.getAttributeNS('http://www.w3.org/1999/xlink', 'href');
+      if (xlinkHref && (xlinkHref.startsWith('http://') || xlinkHref.startsWith('https://'))) {
+        el.removeAttributeNS('http://www.w3.org/1999/xlink', 'href');
+      }
+      // Remove href attributes pointing to external resources
+      const href = el.getAttribute('href');
+      if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
+        el.removeAttribute('href');
+      }
+    });
+    
     // Get SVG dimensions - prefer viewBox or width/height attributes
     let width = parseFloat(svgClone.getAttribute('width') || '0') || svgElement.getBoundingClientRect().width || 800;
     let height = parseFloat(svgClone.getAttribute('height') || '0') || svgElement.getBoundingClientRect().height || 600;
@@ -134,7 +150,7 @@ const downloadDiagramAsPNG = async (svgElement: SVGElement) => {
     
     // Create a canvas to render the SVG
     const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: false });
     if (!ctx) {
       throw new Error('Failed to get canvas context');
     }
@@ -147,14 +163,14 @@ const downloadDiagramAsPNG = async (svgElement: SVGElement) => {
     // Scale context for high DPI
     ctx.scale(scale, scale);
     
-    // Convert SVG to data URL (base64 encoded)
+    // Convert SVG to data URL using base64 encoding (more reliable than URI encoding)
     const svgData = new XMLSerializer().serializeToString(svgClone);
-    
-    // Create image from SVG
-    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(svgBlob);
+    const svgBase64 = btoa(unescape(encodeURIComponent(svgData)));
+    const dataUrl = `data:image/svg+xml;base64,${svgBase64}`;
     
     const img = new Image();
+    
+    // Note: crossOrigin is not needed for data URLs as they are same-origin
     
     return new Promise<void>((resolve, reject) => {
       img.onload = () => {
@@ -166,7 +182,6 @@ const downloadDiagramAsPNG = async (svgElement: SVGElement) => {
           // Convert canvas to blob and download
           canvas.toBlob((blob) => {
             if (!blob) {
-              URL.revokeObjectURL(url);
               reject(new Error('Failed to create blob from canvas'));
               return;
             }
@@ -179,21 +194,19 @@ const downloadDiagramAsPNG = async (svgElement: SVGElement) => {
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(downloadUrl);
-            URL.revokeObjectURL(url);
             resolve();
           }, 'image/png', 1.0);
         } catch (drawError) {
-          URL.revokeObjectURL(url);
           reject(drawError);
         }
       };
       
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        reject(new Error('Failed to load SVG as image'));
+      img.onerror = (error) => {
+        reject(new Error(`Failed to load SVG as image: ${error}`));
       };
       
-      img.src = url;
+      // Use data URL instead of blob URL to avoid CORS issues
+      img.src = dataUrl;
     });
   } catch (error) {
     throw error;
