@@ -485,9 +485,113 @@ export default function MarkdownPreview({ content, syntaxTheme = 'oneDark' }: Ma
       console.warn = originalConsoleWarn;
     };
 
+    // Setup context menu for code blocks
+    const setupCodeBlockContextMenu = () => {
+      if (!containerRef.current) return;
+
+      const codeBlocks = containerRef.current.querySelectorAll('.code-block-container');
+      
+      // Get or create shared context menu for code blocks
+      let codeContextMenu = document.getElementById('code-context-menu') as HTMLDivElement;
+      if (!codeContextMenu) {
+        codeContextMenu = document.createElement('div');
+        codeContextMenu.id = 'code-context-menu';
+        codeContextMenu.className = 'fixed bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-xl py-1 z-[9999] min-w-[180px] hidden no-print';
+        codeContextMenu.innerHTML = `
+          <button class="code-context-menu-item w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+            </svg>
+            <span>Copy code</span>
+          </button>
+        `;
+        document.body.appendChild(codeContextMenu);
+        
+        // Add global copy handler (only once)
+        const copyMenuItem = codeContextMenu.querySelector('.code-context-menu-item') as HTMLButtonElement;
+        copyMenuItem.addEventListener('click', async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          const codeContent = (codeContextMenu as any).__currentCodeContent as string | null;
+          if (!codeContent) {
+            return;
+          }
+          
+          try {
+            await navigator.clipboard.writeText(codeContent);
+            codeContextMenu.classList.add('hidden');
+            
+            // Show success notification
+            const notification = document.createElement('div');
+            notification.className = 'fixed top-4 right-4 z-[10000] px-4 py-2 bg-green-600 text-white rounded-lg shadow-lg text-sm font-medium transition-opacity';
+            notification.textContent = 'Code copied to clipboard!';
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+              notification.style.opacity = '0';
+              setTimeout(() => notification.remove(), 300);
+            }, 2000);
+          } catch (error) {
+            console.error('Failed to copy code:', error);
+            alert('Failed to copy code. Please try again.');
+          } finally {
+            (codeContextMenu as any).__currentCodeContent = null;
+          }
+        });
+      }
+
+      // Attach context menu handler to each code block
+      codeBlocks.forEach((codeBlock) => {
+        const handleContextMenu = (e: MouseEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          const codeContent = (codeBlock as HTMLElement).getAttribute('data-code-content') || '';
+          if (!codeContent) {
+            // Fallback: try to extract text from the code block
+            const codeElement = codeBlock.querySelector('code') || codeBlock.querySelector('pre');
+            const fallbackContent = codeElement?.textContent || '';
+            (codeContextMenu as any).__currentCodeContent = fallbackContent;
+          } else {
+            (codeContextMenu as any).__currentCodeContent = codeContent;
+          }
+          
+          // Position context menu at cursor
+          const x = e.clientX;
+          const y = e.clientY;
+          codeContextMenu.style.left = `${x}px`;
+          codeContextMenu.style.top = `${y}px`;
+          codeContextMenu.classList.remove('hidden');
+          
+          // Close menu when clicking elsewhere
+          const closeMenu = (event: MouseEvent) => {
+            const target = event.target as HTMLElement;
+            if (!codeContextMenu.contains(target)) {
+              codeContextMenu.classList.add('hidden');
+              (codeContextMenu as any).__currentCodeContent = null;
+              document.removeEventListener('click', closeMenu);
+              document.removeEventListener('contextmenu', closeMenu);
+            }
+          };
+          
+          // Close on next click or right-click
+          setTimeout(() => {
+            document.addEventListener('click', closeMenu, { once: true });
+            document.addEventListener('contextmenu', closeMenu, { once: true });
+          }, 0);
+        };
+        
+        // Remove existing listener if any and add new one
+        codeBlock.removeEventListener('contextmenu', handleContextMenu as EventListener);
+        codeBlock.addEventListener('contextmenu', handleContextMenu);
+      });
+    };
+
     // Add a small delay to ensure DOM is ready
     const timer = setTimeout(() => {
       renderMermaid();
+      setupCodeBlockContextMenu();
     }, 100);
 
     return () => clearTimeout(timer);
@@ -522,7 +626,7 @@ export default function MarkdownPreview({ content, syntaxTheme = 'oneDark' }: Ma
             // Syntax highlighted code
             if (!inline && match) {
               return (
-                <div className="my-6 rounded-lg overflow-hidden shadow-sm">
+                <div className="my-6 rounded-lg overflow-hidden shadow-sm code-block-container" data-code-content={codeString}>
                   <SyntaxHighlighter
                     style={selectedThemeStyle}
                     language={lang}
