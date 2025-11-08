@@ -104,6 +104,102 @@ if (typeof window !== 'undefined') {
   }
 }
 
+// Function to download SVG as PNG
+const downloadDiagramAsPNG = async (svgElement: SVGElement) => {
+  try {
+    const svgClone = svgElement.cloneNode(true) as SVGElement;
+    
+    // Ensure SVG has proper dimensions and namespace
+    if (!svgClone.getAttribute('xmlns')) {
+      svgClone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    }
+    
+    // Get SVG dimensions - prefer viewBox or width/height attributes
+    let width = parseFloat(svgClone.getAttribute('width') || '0') || svgElement.getBoundingClientRect().width || 800;
+    let height = parseFloat(svgClone.getAttribute('height') || '0') || svgElement.getBoundingClientRect().height || 600;
+    
+    // If viewBox exists, use it
+    const viewBox = svgClone.getAttribute('viewBox');
+    if (viewBox) {
+      const parts = viewBox.split(' ');
+      if (parts.length >= 4) {
+        width = parseFloat(parts[2]) || width;
+        height = parseFloat(parts[3]) || height;
+      }
+    }
+    
+    // Ensure dimensions are valid
+    if (width <= 0) width = 800;
+    if (height <= 0) height = 600;
+    
+    // Create a canvas to render the SVG
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      throw new Error('Failed to get canvas context');
+    }
+    
+    // Set canvas size with 2x resolution for better quality
+    const scale = 2;
+    canvas.width = width * scale;
+    canvas.height = height * scale;
+    
+    // Scale context for high DPI
+    ctx.scale(scale, scale);
+    
+    // Convert SVG to data URL (base64 encoded)
+    const svgData = new XMLSerializer().serializeToString(svgClone);
+    
+    // Create image from SVG
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+    
+    const img = new Image();
+    
+    return new Promise<void>((resolve, reject) => {
+      img.onload = () => {
+        try {
+          // Clear canvas and draw image
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Convert canvas to blob and download
+          canvas.toBlob((blob) => {
+            if (!blob) {
+              URL.revokeObjectURL(url);
+              reject(new Error('Failed to create blob from canvas'));
+              return;
+            }
+            
+            const downloadUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = `mermaid-diagram-${Date.now()}.png`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(downloadUrl);
+            URL.revokeObjectURL(url);
+            resolve();
+          }, 'image/png', 1.0);
+        } catch (drawError) {
+          URL.revokeObjectURL(url);
+          reject(drawError);
+        }
+      };
+      
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('Failed to load SVG as image'));
+      };
+      
+      img.src = url;
+    });
+  } catch (error) {
+    throw error;
+  }
+};
+
 export default function MarkdownPreview({ content, syntaxTheme = 'oneDark' }: MarkdownPreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const selectedThemeStyle = syntaxThemeStyles[syntaxTheme];
@@ -217,117 +313,105 @@ export default function MarkdownPreview({ content, syntaxTheme = 'oneDark' }: Ma
                 throw new Error(caughtErrorMessage || 'Mermaid diagram syntax error');
               }
               
-              element.innerHTML = svg;
+              // Find the parent container (the div with bg-gray-50)
+              const parentContainer = element.closest('.mermaid-container') || element.parentElement;
+              
+              // Create wrapper for SVG and download button
+              const wrapper = document.createElement('div');
+              wrapper.className = 'relative';
+              
+              // Set the SVG content
+              wrapper.innerHTML = svg;
+              element.innerHTML = '';
+              element.appendChild(wrapper);
               element.classList.remove('mermaid-code');
               element.classList.add('mermaid-rendered');
               
-              // Add click-to-download functionality
-              const svgElement = element.querySelector('svg');
+              // Add right-click context menu functionality
+              const svgElement = wrapper.querySelector('svg');
               if (svgElement) {
-                // Add cursor pointer and tooltip
-                svgElement.style.cursor = 'pointer';
-                svgElement.setAttribute('title', 'Click to download as PNG image');
                 svgElement.setAttribute('data-mermaid-diagram', 'true');
                 
-                // Add click handler to download the diagram
-                svgElement.addEventListener('click', async (e) => {
+                // Get or create shared context menu (one for all diagrams)
+                let contextMenu = document.getElementById('mermaid-context-menu') as HTMLDivElement;
+                if (!contextMenu) {
+                  contextMenu = document.createElement('div');
+                  contextMenu.id = 'mermaid-context-menu';
+                  contextMenu.className = 'fixed bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-xl py-1 z-[9999] min-w-[180px] hidden no-print';
+                  contextMenu.innerHTML = `
+                    <button class="context-menu-item w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                      </svg>
+                      <span>Download as PNG</span>
+                    </button>
+                  `;
+                  document.body.appendChild(contextMenu);
+                  
+                  // Add global download handler (only once)
+                  const downloadMenuItem = contextMenu.querySelector('.context-menu-item') as HTMLButtonElement;
+                  downloadMenuItem.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const targetSvg = (contextMenu as any).__currentSvgElement as SVGElement | null;
+                    if (!targetSvg) {
+                      return;
+                    }
+                    
+                    contextMenu.classList.add('hidden');
+                    
+                    try {
+                      downloadMenuItem.disabled = true;
+                      downloadMenuItem.classList.add('opacity-50', 'cursor-not-allowed');
+                      await downloadDiagramAsPNG(targetSvg);
+                      downloadMenuItem.disabled = false;
+                      downloadMenuItem.classList.remove('opacity-50', 'cursor-not-allowed');
+                    } catch (error) {
+                      console.error('Failed to download diagram:', error);
+                      alert('Failed to download diagram. Please try again.');
+                      downloadMenuItem.disabled = false;
+                      downloadMenuItem.classList.remove('opacity-50', 'cursor-not-allowed');
+                    } finally {
+                      (contextMenu as any).__currentSvgElement = null;
+                    }
+                  });
+                }
+                
+                // Handle right-click to show context menu
+                const handleContextMenu = (e: MouseEvent) => {
                   e.preventDefault();
                   e.stopPropagation();
                   
-                  try {
-                    // Get the SVG element
-                    const svgToDownload = e.currentTarget as SVGElement;
-                    const svgClone = svgToDownload.cloneNode(true) as SVGElement;
-                    
-                    // Ensure SVG has proper dimensions and namespace
-                    if (!svgClone.getAttribute('xmlns')) {
-                      svgClone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+                  // Store the target SVG element on the context menu
+                  (contextMenu as any).__currentSvgElement = svgElement;
+                  
+                  // Position context menu at cursor
+                  const x = e.clientX;
+                  const y = e.clientY;
+                  contextMenu.style.left = `${x}px`;
+                  contextMenu.style.top = `${y}px`;
+                  contextMenu.classList.remove('hidden');
+                  
+                  // Close menu when clicking elsewhere
+                  const closeMenu = (event: MouseEvent) => {
+                    const target = event.target as HTMLElement;
+                    if (!contextMenu.contains(target)) {
+                      contextMenu.classList.add('hidden');
+                      (contextMenu as any).__currentSvgElement = null;
+                      document.removeEventListener('click', closeMenu);
+                      document.removeEventListener('contextmenu', closeMenu);
                     }
-                    
-                    // Get SVG dimensions - prefer viewBox or width/height attributes
-                    let width = parseFloat(svgClone.getAttribute('width') || '0') || svgToDownload.getBoundingClientRect().width || 800;
-                    let height = parseFloat(svgClone.getAttribute('height') || '0') || svgToDownload.getBoundingClientRect().height || 600;
-                    
-                    // If viewBox exists, use it
-                    const viewBox = svgClone.getAttribute('viewBox');
-                    if (viewBox) {
-                      const parts = viewBox.split(' ');
-                      if (parts.length >= 4) {
-                        width = parseFloat(parts[2]) || width;
-                        height = parseFloat(parts[3]) || height;
-                      }
-                    }
-                    
-                    // Ensure dimensions are valid
-                    if (width <= 0) width = 800;
-                    if (height <= 0) height = 600;
-                    
-                    // Create a canvas to render the SVG
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    if (!ctx) return;
-                    
-                    // Set canvas size with 2x resolution for better quality
-                    const scale = 2;
-                    canvas.width = width * scale;
-                    canvas.height = height * scale;
-                    
-                    // Scale context for high DPI
-                    ctx.scale(scale, scale);
-                    
-                    // Convert SVG to data URL (base64 encoded)
-                    const svgData = new XMLSerializer().serializeToString(svgClone);
-                    
-                    // Create image from SVG
-                    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-                    const url = URL.createObjectURL(svgBlob);
-                    
-                    const img = new Image();
-                    
-                    img.onload = () => {
-                      try {
-                        // Clear canvas and draw image
-                        ctx.clearRect(0, 0, canvas.width, canvas.height);
-                        ctx.drawImage(img, 0, 0, width, height);
-                        
-                        // Convert canvas to blob and download
-                        canvas.toBlob((blob) => {
-                          if (!blob) {
-                            console.error('Failed to create blob from canvas');
-                            alert('Failed to generate image. Please try again.');
-                            URL.revokeObjectURL(url);
-                            return;
-                          }
-                          
-                          const downloadUrl = URL.createObjectURL(blob);
-                          const a = document.createElement('a');
-                          a.href = downloadUrl;
-                          a.download = `mermaid-diagram-${Date.now()}.png`;
-                          document.body.appendChild(a);
-                          a.click();
-                          document.body.removeChild(a);
-                          URL.revokeObjectURL(downloadUrl);
-                          URL.revokeObjectURL(url);
-                        }, 'image/png', 1.0);
-                      } catch (drawError) {
-                        console.error('Failed to draw image on canvas:', drawError);
-                        alert('Failed to render diagram. Please try again.');
-                        URL.revokeObjectURL(url);
-                      }
-                    };
-                    
-                    img.onerror = () => {
-                      console.error('Failed to load SVG as image');
-                      alert('Failed to load diagram as image. Please try again.');
-                      URL.revokeObjectURL(url);
-                    };
-                    
-                    img.src = url;
-                  } catch (error) {
-                    console.error('Failed to download diagram:', error);
-                    alert('Failed to download diagram. Please try again.');
-                  }
-                });
+                  };
+                  
+                  // Close on next click or right-click
+                  setTimeout(() => {
+                    document.addEventListener('click', closeMenu, { once: true });
+                    document.addEventListener('contextmenu', closeMenu, { once: true });
+                  }, 0);
+                };
+                
+                svgElement.addEventListener('contextmenu', handleContextMenu);
               }
             } catch (parseError) {
               // Restore console before handling error
@@ -416,7 +500,7 @@ export default function MarkdownPreview({ content, syntaxTheme = 'oneDark' }: Ma
             // Mermaid diagrams
             if (lang === 'mermaid' && !inline) {
               return (
-                <div className="my-8 p-6 bg-gray-50 rounded-lg border-2 border-gray-200">
+                <div className="my-8 p-6 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 mermaid-container">
                   <div className="mermaid-code">{codeString}</div>
                 </div>
               );
