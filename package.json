@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "export": "NODE_ENV=production next build",
-    "deploy": "npm run export && touch out/.nojekyll",
+    "export:verify": "npm run export && node scripts/verify-build.js",
+    "deploy": "npm run export:verify && touch out/.nojekyll",
     "export:docs": "npm run export && rm -rf docs && mkdir -p docs && cp -R out/* docs/ && touch docs/.nojekyll",
     "deploy:docs": "npm run export:docs && echo 'Docs prepared. Push and set Pages source to main/docs.'"
   },

@@ -7,7 +7,8 @@ const basePath = isProd ? '/MarkVista' : '';
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   basePath: basePath,
-  assetPrefix: basePath,
+  // assetPrefix should match basePath for static exports
+  assetPrefix: basePath || undefined,
   trailingSlash: true, // Important for GitHub Pages
   output: 'export', // Static export for GitHub Pages
   images: {

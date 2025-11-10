@@ -38,14 +38,29 @@ jobs:
         env:
           NODE_ENV: production
           
+      - name: Verify build
+        run: node scripts/verify-build.js
+          
       - name: Create .nojekyll file
         run: touch out/.nojekyll
         
-      - name: Verify CSS files
+      - name: Verify build output
         run: |
-          echo "Checking CSS files..."
-          ls -lh out/_next/static/chunks/*.css || true
-          find out/_next -name "*.css" -type f | head -5
+          echo "=== Checking build output structure ==="
+          echo "Root files:"
+          ls -la out/ | head -10
+          echo ""
+          echo "=== Checking _next directory ==="
+          ls -la out/_next/static/ 2>/dev/null || echo "_next/static not found"
+          echo ""
+          echo "=== Checking CSS files ==="
+          find out/_next -name "*.css" -type f | head -10 || echo "No CSS files found"
+          echo ""
+          echo "=== Checking HTML files for CSS references ==="
+          find out -name "*.html" -type f | head -3 | xargs grep -h "\.css" | head -5 || echo "No CSS references found in HTML"
+          echo ""
+          echo "=== Verifying basePath in HTML ==="
+          find out -name "*.html" -type f | head -1 | xargs grep -o "/MarkVista/_next" | head -3 || echo "Checking for basePath references..."
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
