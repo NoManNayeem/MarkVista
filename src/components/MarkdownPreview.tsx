@@ -543,9 +543,10 @@ export default function MarkdownPreview({ content, syntaxTheme = 'oneDark' }: Ma
 
       // Attach context menu handler to each code block
       codeBlocks.forEach((codeBlock) => {
-        const handleContextMenu = (e: MouseEvent) => {
-          e.preventDefault();
-          e.stopPropagation();
+        const handleContextMenu = (e: Event) => {
+          const mouseEvent = e as MouseEvent;
+          mouseEvent.preventDefault();
+          mouseEvent.stopPropagation();
           
           const codeContent = (codeBlock as HTMLElement).getAttribute('data-code-content') || '';
           if (!codeContent) {
@@ -558,15 +559,15 @@ export default function MarkdownPreview({ content, syntaxTheme = 'oneDark' }: Ma
           }
           
           // Position context menu at cursor
-          const x = e.clientX;
-          const y = e.clientY;
+          const x = mouseEvent.clientX;
+          const y = mouseEvent.clientY;
           codeContextMenu.style.left = `${x}px`;
           codeContextMenu.style.top = `${y}px`;
           codeContextMenu.classList.remove('hidden');
           
           // Close menu when clicking elsewhere
-          const closeMenu = (event: MouseEvent) => {
-            const target = event.target as HTMLElement;
+          const closeMenu = (event: Event) => {
+            const target = (event as MouseEvent).target as HTMLElement;
             if (!codeContextMenu.contains(target)) {
               codeContextMenu.classList.add('hidden');
               (codeContextMenu as any).__currentCodeContent = null;
@@ -583,7 +584,7 @@ export default function MarkdownPreview({ content, syntaxTheme = 'oneDark' }: Ma
         };
         
         // Remove existing listener if any and add new one
-        codeBlock.removeEventListener('contextmenu', handleContextMenu as EventListener);
+        codeBlock.removeEventListener('contextmenu', handleContextMenu);
         codeBlock.addEventListener('contextmenu', handleContextMenu);
       });
     };
