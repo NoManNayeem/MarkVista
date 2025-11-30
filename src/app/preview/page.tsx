@@ -8,8 +8,8 @@ import GitHubStarModal from '@/components/GitHubStarModal';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { SyntaxThemeSelector, type SyntaxTheme } from '@/components/SyntaxThemeSelector';
 import { TableOfContents } from '@/components/TableOfContents';
-import { exportToPDF } from '@/lib/exportPDF';
-import { exportToDOCX } from '@/lib/exportDOCX';
+import { exportToPDFImproved as exportToPDF } from '@/lib/exportPDFImproved';
+import { exportToDOCXImproved as exportToDOCX } from '@/lib/exportDOCXImproved';
 
 export default function PreviewPage() {
   const router = useRouter();
@@ -54,8 +54,8 @@ export default function PreviewPage() {
     setError(null);
 
     try {
-      // Wait for Mermaid diagrams to render
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Wait for Mermaid diagrams to render (increased from 500ms to 1500ms)
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
       await exportToPDF({
         fileName: fileName.replace(/\.(md|markdown)$/, ''),
@@ -81,8 +81,8 @@ export default function PreviewPage() {
     setError(null);
 
     try {
-      // Wait for Mermaid diagrams to render
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Wait for Mermaid diagrams to render (increased from 500ms to 1500ms)
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
       await exportToDOCX({
         fileName: fileName.replace(/\.(md|markdown)$/, ''),
@@ -116,9 +116,8 @@ export default function PreviewPage() {
   const showNotification = (message: string, type: 'success' | 'error') => {
     // Simple notification - you can enhance this with a toast library
     const notification = document.createElement('div');
-    notification.className = `fixed top-4 right-4 z-[100] px-6 py-3 rounded-lg shadow-lg text-white font-medium transition-opacity ${
-      type === 'success' ? 'bg-green-600' : 'bg-red-600'
-    }`;
+    notification.className = `fixed top-4 right-4 z-[100] px-6 py-3 rounded-lg shadow-lg text-white font-medium transition-opacity ${type === 'success' ? 'bg-green-600' : 'bg-red-600'
+      }`;
     notification.textContent = message;
     document.body.appendChild(notification);
 

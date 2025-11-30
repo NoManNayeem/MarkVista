@@ -1,3 +1,5 @@
+import { sanitizeFileName, createLightThemedClone, waitForImages, injectPrintStyles } from './exportUtils';
+
 export interface PDFExportOptions {
   fileName: string;
   element: HTMLElement;
@@ -7,6 +9,7 @@ export async function exportToPDFImproved({ fileName, element }: PDFExportOption
   try {
     // Dynamic import to avoid SSR issues
     const html2pdf = (await import('html2pdf.js')).default;
+
     // Find the actual markdown preview element
     const markdownPreview = element.querySelector('#markdown-preview') as HTMLElement;
     const targetElement = markdownPreview || element;
@@ -17,42 +20,56 @@ export async function exportToPDFImproved({ fileName, element }: PDFExportOption
     }
 
     console.log('PDF export - Starting with html2pdf.js');
+    console.log('PDF export - Waiting for images and diagrams to load...');
 
-    // Clone the element to modify it without affecting the original
-    const clonedElement = targetElement.cloneNode(true) as HTMLElement;
+    // Wait for all images to load
+    await waitForImages(targetElement);
 
-    // Ensure light backgrounds and RGB colors for all elements
-    const style = document.createElement('style');
-    style.textContent = `
-      * {
+    // Wait additional time for Mermaid diagrams to fully render
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    console.log('PDF export - Creating light-themed clone...');
+
+    // Create a light-themed clone to ensure exports always have light backgrounds
+    const clonedElement = createLightThemedClone(targetElement);
+
+    // Inject comprehensive print-friendly styles
+    injectPrintStyles(clonedElement);
+
+    // Additional aggressive style forcing for html2pdf.js
+    const additionalStyle = document.createElement('style');
+    additionalStyle.textContent = `
+      /* Extra aggressive style forcing for PDF export */
+      body, html {
         background-color: rgb(255, 255, 255) !important;
-        color: rgb(0, 0, 0) !important;
       }
-      .mermaid-rendered svg, svg {
-        background-color: rgb(255, 255, 255) !important;
-      }
-      pre {
+      
+      /* Ensure all syntax highlighter elements are visible */
+      .code-block-container * {
         background-color: rgb(245, 245, 245) !important;
-        border: 1px solid rgb(221, 221, 221) !important;
+      }
+      
+      /* Force visibility on all text */
+      p, span, div, li, td, th, code, pre {
         color: rgb(0, 0, 0) !important;
       }
-      code {
-        background-color: rgb(245, 245, 245) !important;
-        color: rgb(0, 0, 0) !important;
-      }
-      /* Override any Tailwind lab() colors */
-      [class*="text-"], [class*="bg-"], [class*="border-"] {
-        color: inherit !important;
-        background-color: inherit !important;
-        border-color: currentColor !important;
+      
+      /* Special handling for inline code */
+      code:not(pre code) {
+        color: rgb(219, 39, 119) !important;
       }
     `;
-    clonedElement.prepend(style);
+    clonedElement.appendChild(additionalStyle);
+
+    console.log('PDF export - Configuring export options...');
+
+    // Sanitize filename while preserving case
+    const safeFileName = sanitizeFileName(fileName);
 
     // Configure html2pdf options for better quality
     const opt = {
       margin: [10, 10, 10, 10] as [number, number, number, number],
-      filename: `${fileName.replace(/[^a-z0-9_-]/gi, '_').toLowerCase() || 'document'}.pdf`,
+      filename: `${safeFileName}.pdf`,
       image: { type: 'jpeg' as const, quality: 0.98 },
       html2canvas: {
         scale: 2,
@@ -60,6 +77,14 @@ export async function exportToPDFImproved({ fileName, element }: PDFExportOption
         logging: false,
         backgroundColor: '#ffffff',
         windowWidth: 1200,
+        // Force light rendering
+        onclone: (clonedDoc: Document) => {
+          const clonedBody = clonedDoc.body;
+          if (clonedBody) {
+            clonedBody.style.backgroundColor = '#ffffff';
+            clonedBody.style.color = '#000000';
+          }
+        },
       },
       jsPDF: {
         unit: 'mm' as const,
@@ -69,10 +94,12 @@ export async function exportToPDFImproved({ fileName, element }: PDFExportOption
       pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
     };
 
+    console.log('PDF export - Generating PDF...');
+
     // Generate and download PDF
     await html2pdf().set(opt).from(clonedElement).save();
 
-    console.log('PDF export completed successfully');
+    console.log('PDF export completed successfully - File:', `${safeFileName}.pdf`);
   } catch (error) {
     console.error('PDF export failed:', error);
     const message = error instanceof Error ? error.message : 'Please try again';

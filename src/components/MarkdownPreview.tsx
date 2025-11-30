@@ -18,6 +18,7 @@ import {
 import mermaid from 'mermaid';
 import 'katex/dist/katex.min.css';
 import type { SyntaxTheme } from './SyntaxThemeSelector';
+import { getSmartDiagramName } from '@/lib/exportUtils';
 
 interface MarkdownPreviewProps {
   content: string;
@@ -41,7 +42,7 @@ if (typeof window !== 'undefined') {
   // Suppress Mermaid's internal logging by overriding console methods BEFORE initialization
   const originalError = console.error;
   const originalWarn = console.warn;
-  
+
   // Temporarily suppress console during Mermaid initialization
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   console.error = (...args: any[]) => {
@@ -58,7 +59,7 @@ if (typeof window !== 'undefined') {
       originalWarn.apply(console, args);
     }
   };
-  
+
   try {
     mermaid.initialize({
       startOnLoad: false,
@@ -86,34 +87,37 @@ if (typeof window !== 'undefined') {
     console.error = originalError;
     console.warn = originalWarn;
   }
-  
+
   // Also suppress Mermaid's internal error queue if it exists
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mermaidAPI = (mermaid as any).mermaidAPI;
   if (mermaidAPI) {
     const originalLog = mermaidAPI.log;
     if (originalLog) {
-      mermaidAPI.log = () => {}; // No-op
+      mermaidAPI.log = () => { }; // No-op
     }
-    
+
     // Suppress error queue execution logging
     if (mermaidAPI.logger) {
-      mermaidAPI.logger.error = () => {};
-      mermaidAPI.logger.warn = () => {};
+      mermaidAPI.logger.error = () => { };
+      mermaidAPI.logger.warn = () => { };
     }
   }
 }
 
-// Function to download SVG as PNG
+// Diagram counter for tracking multiple diagrams
+const diagramCounters = new WeakMap<HTMLElement, number>();
+
+// Function to download SVG as PNG with smart naming
 const downloadDiagramAsPNG = async (svgElement: SVGElement) => {
   try {
     const svgClone = svgElement.cloneNode(true) as SVGElement;
-    
+
     // Ensure SVG has proper dimensions and namespace
     if (!svgClone.getAttribute('xmlns')) {
       svgClone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
     }
-    
+
     // Remove any external references that might cause CORS issues
     // Remove xlink:href attributes that might reference external resources
     const allElements = svgClone.querySelectorAll('*');
@@ -129,11 +133,11 @@ const downloadDiagramAsPNG = async (svgElement: SVGElement) => {
         el.removeAttribute('href');
       }
     });
-    
+
     // Get SVG dimensions - prefer viewBox or width/height attributes
     let width = parseFloat(svgClone.getAttribute('width') || '0') || svgElement.getBoundingClientRect().width || 800;
     let height = parseFloat(svgClone.getAttribute('height') || '0') || svgElement.getBoundingClientRect().height || 600;
-    
+
     // If viewBox exists, use it
     const viewBox = svgClone.getAttribute('viewBox');
     if (viewBox) {
@@ -143,68 +147,82 @@ const downloadDiagramAsPNG = async (svgElement: SVGElement) => {
         height = parseFloat(parts[3]) || height;
       }
     }
-    
+
     // Ensure dimensions are valid
     if (width <= 0) width = 800;
     if (height <= 0) height = 600;
-    
+
     // Create a canvas to render the SVG
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d', { willReadFrequently: false });
     if (!ctx) {
       throw new Error('Failed to get canvas context');
     }
-    
+
     // Set canvas size with 2x resolution for better quality
     const scale = 2;
     canvas.width = width * scale;
     canvas.height = height * scale;
-    
+
     // Scale context for high DPI
     ctx.scale(scale, scale);
-    
+
     // Convert SVG to data URL using base64 encoding (more reliable than URI encoding)
     const svgData = new XMLSerializer().serializeToString(svgClone);
     const svgBase64 = btoa(unescape(encodeURIComponent(svgData)));
     const dataUrl = `data:image/svg+xml;base64,${svgBase64}`;
-    
+
     const img = new Image();
-    
+
     // Note: crossOrigin is not needed for data URLs as they are same-origin
-    
+
     return new Promise<void>((resolve, reject) => {
       img.onload = () => {
         try {
           // Clear canvas and draw image
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           ctx.drawImage(img, 0, 0, width, height);
-          
+
           // Convert canvas to blob and download
           canvas.toBlob((blob) => {
             if (!blob) {
               reject(new Error('Failed to create blob from canvas'));
               return;
             }
-            
+
+            // Get or increment diagram counter for this section
+            const container = svgElement.closest('.mermaid-container');
+            let diagramIndex = 1;
+            if (container && container.parentElement) {
+              const currentCount = diagramCounters.get(container.parentElement as HTMLElement) || 0;
+              diagramIndex = currentCount + 1;
+              diagramCounters.set(container.parentElement as HTMLElement, diagramIndex);
+            }
+
+            // Generate smart filename based on section
+            const fileName = getSmartDiagramName(svgElement, diagramIndex);
+
             const downloadUrl = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = downloadUrl;
-            a.download = `mermaid-diagram-${Date.now()}.png`;
+            a.download = fileName;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(downloadUrl);
+
+            console.log('Diagram downloaded:', fileName);
             resolve();
           }, 'image/png', 1.0);
         } catch (drawError) {
           reject(drawError);
         }
       };
-      
+
       img.onerror = (error) => {
         reject(new Error(`Failed to load SVG as image: ${error}`));
       };
-      
+
       // Use data URL instead of blob URL to avoid CORS issues
       img.src = dataUrl;
     });
@@ -222,19 +240,19 @@ export default function MarkdownPreview({ content, syntaxTheme = 'oneDark' }: Ma
       if (!containerRef.current) return;
 
       const mermaidElements = containerRef.current.querySelectorAll('.mermaid-code');
-      
+
       // Suppress console errors from Mermaid temporarily
       const originalConsoleError = console.error;
       const originalConsoleWarn = console.warn;
       const suppressedErrors: string[] = [];
-      
+
       // Override console.error to catch Mermaid parse errors
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       console.error = (...args: any[]) => {
         const errorStr = args.join(' ');
         // Check if it's a Mermaid parsing/execution error
         if (
-          errorStr.includes('Parse error') || 
+          errorStr.includes('Parse error') ||
           errorStr.includes('Error parsing') ||
           errorStr.includes('Error executing queue') ||
           errorStr.includes('DIAMOND_START') ||
@@ -247,7 +265,7 @@ export default function MarkdownPreview({ content, syntaxTheme = 'oneDark' }: Ma
         // Log other errors normally
         originalConsoleError.apply(console, args);
       };
-      
+
       // Also suppress console.warn for Mermaid warnings
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       console.warn = (...args: any[]) => {
@@ -257,12 +275,12 @@ export default function MarkdownPreview({ content, syntaxTheme = 'oneDark' }: Ma
         }
         originalConsoleWarn.apply(console, args);
       };
-      
+
       for (let i = 0; i < mermaidElements.length; i++) {
         const element = mermaidElements[i];
         try {
           const code = element.textContent || '';
-          
+
           // Validate that we have code
           if (!code.trim()) {
             element.innerHTML = '<p class="text-yellow-600 p-4 bg-yellow-50 rounded">Empty diagram code</p>';
@@ -271,7 +289,7 @@ export default function MarkdownPreview({ content, syntaxTheme = 'oneDark' }: Ma
           }
 
           const id = `mermaid-${Date.now()}-${i}`;
-          
+
           // Use mermaid's parse and render methods with better error handling
           // Wrap in a try-catch that also suppresses Mermaid's internal error logging
           try {
@@ -280,12 +298,12 @@ export default function MarkdownPreview({ content, syntaxTheme = 'oneDark' }: Ma
             const tempWarn = console.warn;
             let mermaidErrorCaught = false;
             let caughtErrorMessage = '';
-            
+
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             console.error = (...args: any[]) => {
               const msg = args.join(' ');
               if (
-                msg.includes('Parse error') || 
+                msg.includes('Parse error') ||
                 msg.includes('Error parsing') ||
                 msg.includes('Error executing queue') ||
                 msg.includes('DIAMOND_START') ||
@@ -307,44 +325,44 @@ export default function MarkdownPreview({ content, syntaxTheme = 'oneDark' }: Ma
               }
               tempWarn.apply(console, args);
             };
-            
+
             try {
               // First, try to parse the diagram to catch syntax errors early
               await mermaid.parse(code);
-              
+
               // If parsing succeeds, render it
               const { svg } = await mermaid.render(id, code);
-              
+
               // Wait a bit for any async error queue processing
               await new Promise(resolve => setTimeout(resolve, 50));
-              
+
               // Restore console before checking for errors
               console.error = tempError;
               console.warn = tempWarn;
-              
+
               if (mermaidErrorCaught) {
                 throw new Error(caughtErrorMessage || 'Mermaid diagram syntax error');
               }
-              
+
               // Find the parent container (the div with bg-gray-50)
               const parentContainer = element.closest('.mermaid-container') || element.parentElement;
-              
+
               // Create wrapper for SVG and download button
               const wrapper = document.createElement('div');
               wrapper.className = 'relative';
-              
+
               // Set the SVG content
               wrapper.innerHTML = svg;
               element.innerHTML = '';
               element.appendChild(wrapper);
               element.classList.remove('mermaid-code');
               element.classList.add('mermaid-rendered');
-              
+
               // Add right-click context menu functionality
               const svgElement = wrapper.querySelector('svg');
               if (svgElement) {
                 svgElement.setAttribute('data-mermaid-diagram', 'true');
-                
+
                 // Get or create shared context menu (one for all diagrams)
                 let contextMenu = document.getElementById('mermaid-context-menu') as HTMLDivElement;
                 if (!contextMenu) {
@@ -360,20 +378,20 @@ export default function MarkdownPreview({ content, syntaxTheme = 'oneDark' }: Ma
                     </button>
                   `;
                   document.body.appendChild(contextMenu);
-                  
+
                   // Add global download handler (only once)
                   const downloadMenuItem = contextMenu.querySelector('.context-menu-item') as HTMLButtonElement;
                   downloadMenuItem.addEventListener('click', async (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    
+
                     const targetSvg = (contextMenu as any).__currentSvgElement as SVGElement | null;
                     if (!targetSvg) {
                       return;
                     }
-                    
+
                     contextMenu.classList.add('hidden');
-                    
+
                     try {
                       downloadMenuItem.disabled = true;
                       downloadMenuItem.classList.add('opacity-50', 'cursor-not-allowed');
@@ -390,22 +408,22 @@ export default function MarkdownPreview({ content, syntaxTheme = 'oneDark' }: Ma
                     }
                   });
                 }
-                
+
                 // Handle right-click to show context menu
                 const handleContextMenu = (e: MouseEvent) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  
+
                   // Store the target SVG element on the context menu
                   (contextMenu as any).__currentSvgElement = svgElement;
-                  
+
                   // Position context menu at cursor
                   const x = e.clientX;
                   const y = e.clientY;
                   contextMenu.style.left = `${x}px`;
                   contextMenu.style.top = `${y}px`;
                   contextMenu.classList.remove('hidden');
-                  
+
                   // Close menu when clicking elsewhere
                   const closeMenu = (event: MouseEvent) => {
                     const target = event.target as HTMLElement;
@@ -416,14 +434,14 @@ export default function MarkdownPreview({ content, syntaxTheme = 'oneDark' }: Ma
                       document.removeEventListener('contextmenu', closeMenu);
                     }
                   };
-                  
+
                   // Close on next click or right-click
                   setTimeout(() => {
                     document.addEventListener('click', closeMenu, { once: true });
                     document.addEventListener('contextmenu', closeMenu, { once: true });
                   }, 0);
                 };
-                
+
                 svgElement.addEventListener('contextmenu', handleContextMenu);
               }
             } catch (parseError) {
@@ -436,8 +454,8 @@ export default function MarkdownPreview({ content, syntaxTheme = 'oneDark' }: Ma
             // Handle parsing errors more gracefully
             const errorMsg = parseError instanceof Error ? parseError.message :
               (typeof parseError === 'object' && parseError !== null && 'str' in parseError ? String(parseError.str) :
-              suppressedErrors[0] || 'Unknown diagram syntax error');
-            
+                suppressedErrors[0] || 'Unknown diagram syntax error');
+
             // Extract readable error message
             let displayMsg = errorMsg;
             if (errorMsg.includes('Parse error on line')) {
@@ -446,7 +464,7 @@ export default function MarkdownPreview({ content, syntaxTheme = 'oneDark' }: Ma
                 displayMsg = `Syntax error: ${match[1].trim()}`;
               }
             }
-            
+
             element.innerHTML = `
               <div class="p-4 bg-red-50 border-2 border-red-200 rounded-lg">
                 <p class="text-red-800 font-semibold mb-2">⚠️ Diagram Syntax Error</p>
@@ -462,13 +480,13 @@ export default function MarkdownPreview({ content, syntaxTheme = 'oneDark' }: Ma
             `;
             element.classList.remove('mermaid-code');
             element.classList.add('mermaid-error');
-            
+
             // Clear suppressed errors for this element
             suppressedErrors.length = 0;
           }
         } catch (error) {
           const errorMsg = error instanceof Error ? error.message : (suppressedErrors[0] || 'Failed to render diagram');
-          
+
           element.innerHTML = `
             <div class="p-4 bg-red-50 border-2 border-red-200 rounded-lg">
               <p class="text-red-800 font-semibold mb-2">⚠️ Diagram Error</p>
@@ -479,7 +497,7 @@ export default function MarkdownPreview({ content, syntaxTheme = 'oneDark' }: Ma
           element.classList.add('mermaid-error');
         }
       }
-      
+
       // Restore original console methods
       console.error = originalConsoleError;
       console.warn = originalConsoleWarn;
@@ -490,7 +508,7 @@ export default function MarkdownPreview({ content, syntaxTheme = 'oneDark' }: Ma
       if (!containerRef.current) return;
 
       const codeBlocks = containerRef.current.querySelectorAll('.code-block-container');
-      
+
       // Get or create shared context menu for code blocks
       let codeContextMenu = document.getElementById('code-context-menu') as HTMLDivElement;
       if (!codeContextMenu) {
@@ -506,28 +524,28 @@ export default function MarkdownPreview({ content, syntaxTheme = 'oneDark' }: Ma
           </button>
         `;
         document.body.appendChild(codeContextMenu);
-        
+
         // Add global copy handler (only once)
         const copyMenuItem = codeContextMenu.querySelector('.code-context-menu-item') as HTMLButtonElement;
         copyMenuItem.addEventListener('click', async (e) => {
           e.preventDefault();
           e.stopPropagation();
-          
+
           const codeContent = (codeContextMenu as any).__currentCodeContent as string | null;
           if (!codeContent) {
             return;
           }
-          
+
           try {
             await navigator.clipboard.writeText(codeContent);
             codeContextMenu.classList.add('hidden');
-            
+
             // Show success notification
             const notification = document.createElement('div');
             notification.className = 'fixed top-4 right-4 z-[10000] px-4 py-2 bg-green-600 text-white rounded-lg shadow-lg text-sm font-medium transition-opacity';
             notification.textContent = 'Code copied to clipboard!';
             document.body.appendChild(notification);
-            
+
             setTimeout(() => {
               notification.style.opacity = '0';
               setTimeout(() => notification.remove(), 300);
@@ -547,7 +565,7 @@ export default function MarkdownPreview({ content, syntaxTheme = 'oneDark' }: Ma
           const mouseEvent = e as MouseEvent;
           mouseEvent.preventDefault();
           mouseEvent.stopPropagation();
-          
+
           const codeContent = (codeBlock as HTMLElement).getAttribute('data-code-content') || '';
           if (!codeContent) {
             // Fallback: try to extract text from the code block
@@ -557,14 +575,14 @@ export default function MarkdownPreview({ content, syntaxTheme = 'oneDark' }: Ma
           } else {
             (codeContextMenu as any).__currentCodeContent = codeContent;
           }
-          
+
           // Position context menu at cursor
           const x = mouseEvent.clientX;
           const y = mouseEvent.clientY;
           codeContextMenu.style.left = `${x}px`;
           codeContextMenu.style.top = `${y}px`;
           codeContextMenu.classList.remove('hidden');
-          
+
           // Close menu when clicking elsewhere
           const closeMenu = (event: Event) => {
             const target = (event as MouseEvent).target as HTMLElement;
@@ -575,14 +593,14 @@ export default function MarkdownPreview({ content, syntaxTheme = 'oneDark' }: Ma
               document.removeEventListener('contextmenu', closeMenu);
             }
           };
-          
+
           // Close on next click or right-click
           setTimeout(() => {
             document.addEventListener('click', closeMenu, { once: true });
             document.addEventListener('contextmenu', closeMenu, { once: true });
           }, 0);
         };
-        
+
         // Remove existing listener if any and add new one
         codeBlock.removeEventListener('contextmenu', handleContextMenu);
         codeBlock.addEventListener('contextmenu', handleContextMenu);

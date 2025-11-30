@@ -1,5 +1,6 @@
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType } from 'docx';
 import { saveAs } from 'file-saver';
+import { sanitizeFileName } from './exportUtils';
 
 export interface DOCXExportOptions {
   fileName: string;
@@ -281,6 +282,8 @@ export async function exportToDOCXImproved({ fileName, element }: DOCXExportOpti
       throw new Error('No content could be parsed for export.');
     }
 
+    console.log('DOCX export - Creating document with', documentElements.length, 'elements');
+
     // Create document
     const doc = new Document({
       sections: [
@@ -300,12 +303,16 @@ export async function exportToDOCXImproved({ fileName, element }: DOCXExportOpti
       ],
     });
 
+    console.log('DOCX export - Generating file...');
+
     // Generate and save
     const blob = await Packer.toBlob(doc);
-    const safeFileName = fileName.replace(/[^a-z0-9_-]/gi, '_').toLowerCase() || 'document';
+
+    // Sanitize filename while preserving case
+    const safeFileName = sanitizeFileName(fileName);
     saveAs(blob, `${safeFileName}.docx`);
 
-    console.log('DOCX export completed successfully');
+    console.log('DOCX export completed successfully - File:', `${safeFileName}.docx`);
   } catch (error) {
     console.error('DOCX export failed:', error);
     const message = error instanceof Error ? error.message : 'Please try again';
